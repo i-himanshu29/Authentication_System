@@ -1,0 +1,19 @@
+{
+  "name": "authentication_system",
+  "version": "1.0.0",
+  "description": "Authentication system",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "author": "Himanshu Maurya",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
