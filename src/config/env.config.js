@@ -5,7 +5,7 @@ dotenv.config();
 const requiredEnvVars = ["MONGODB_URI"];
 
 const optionalEnvVars = {
-   PORT: 5000,
+   PORT: 8000,
    NODE_ENV: "development",
    BASE_URL: "http://localhost:8000",
    FRONTEND_URL:"http://localhost:3000",
