@@ -5,7 +5,7 @@ import { config } from "./config/env.config.js";
 
 
 // import routes
-// import authRouter from "./routes";
+import userRoutes from "./routes/user.routes.js";
 
 const app = express();
 
@@ -27,6 +27,6 @@ app.use(
    }),
 );
 
-// app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/users", userRoutes);
 
 export default app;

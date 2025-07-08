@@ -31,7 +31,7 @@ const userSchema = new Schema(
          type: Date,
       },
       role: {
-         typr: String,
+         type: String,
          enum: ["admin", "user"],
          default: "user",
       },
