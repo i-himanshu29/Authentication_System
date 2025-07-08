@@ -10,8 +10,11 @@
   "author": "Himanshu Maurya",
   "license": "ISC",
   "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "dotenv": "^17.0.1",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "mongoose": "^8.16.2"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
