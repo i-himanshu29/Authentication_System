@@ -1,6 +1,6 @@
 import crypto from "crypto";
-// import jwt from "jsonwebtoken";
-// import { config } from "../config/env.config.js";
+import jwt from "jsonwebtoken";
+import { config } from "../config/env.config.js";
 
 const generateSecureToken = (bytes = 32) => {
    return crypto.randomBytes(bytes).toString("hex");
@@ -18,4 +18,22 @@ const extractTokenFromRequest = (req) => {
    return null;
 };
 
-export { generateSecureToken,extractTokenFromRequest };
+// function to generate access token - short lived
+const generateAccessToken = (userId) => {
+   return jwt.sign({ id: userId }, config.jwt.accessToken.secret, {
+      expiresIn: config.jwt.accessToken.expiresIn,
+   });
+};
+
+const generateRefreshToken = (userId) => {
+   return jwt.sign({ id: userId }, config.jwt.refreshToken.secret, {
+      expiresIn: config.jwt.refreshToken.expiresIn,
+   });
+};
+
+export {
+   generateSecureToken,
+   extractTokenFromRequest,
+   generateAccessToken,
+   generateRefreshToken,
+};

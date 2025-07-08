@@ -16,7 +16,7 @@ const refreshTokenSchema = new Schema(
          type: String,
          required: true,
       },
-      isAddress: {
+      ipAddress: {
          type: String,
          default: "Unknown",
       },

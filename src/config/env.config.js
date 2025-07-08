@@ -10,6 +10,11 @@ const requiredEnvVars = [
    "SMTP_USER",
    "SMTP_PASS",
    "MAILTRAP_SENDEREMAIL",
+
+   "JWT_ACCESS_TOKEN_SECRET",
+   "ACCESS_TOKEN_EXPIRESIN",
+   "JWT_REFRESH_TOKEN_SECRET",
+   "REFRESH_TOKEN_EXPIRESIN",
 ];
 
 const optionalEnvVars = {
@@ -18,6 +23,7 @@ const optionalEnvVars = {
    BASE_URL: "http://localhost:8000",
    FRONTEND_URL: "http://localhost:3000",
    EMAIL_SECURE: false,
+   MAX_DEVICES_PER_USER: 2,
 };
 
 // Validate environment variables
@@ -82,10 +88,28 @@ const config = {
       senderEmail: process.env.MAILTRAP_SENDEREMAIL,
    },
 
+   //jwt
+   jwt: {
+      accessToken: {
+         secret: process.env.JWT_ACCESS_TOKEN_SECRET,
+         expiresIn: parseTimeString(process.env.ACCESS_TOKEN_EXPIRESIN),
+      },
+      refreshToken: {
+         secret: process.env.JWT_REFRESH_TOKEN_SECRET,
+         expiresIn: parseTimeString(process.env.REFRESH_TOKEN_EXPIRESIN),
+      },
+   },
+
+   //urls
    urls: {
       base: process.env.BASE_URL,
       frontend: process.env.FRONTEND_URL,
    },
+
+   //security
+   security: {
+      maxDevicesPerUser: parseInt(process.env.MAX_DEVICES_PER_USER || "2", 10),
+   },
 };
 
-export { config ,parseTimeString};
+export { config, parseTimeString };
