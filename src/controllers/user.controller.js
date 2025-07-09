@@ -10,7 +10,7 @@ import {
 } from "../utils/token.util.js";
 import {
    sendForgotPasswordEmail,
-   sendVerifcationEmail,
+   sendVerificationEmail,
 } from "../utils/mail.util.js";
 import {
    enforceDeviceLimit,
@@ -61,7 +61,7 @@ const registerUser = async (req, res) => {
       await user.save();
 
       //send Verification email
-      const emailSent = await sendVerifcationEmail(user.email, token);
+      const emailSent = await sendVerificationEmail(user.email, token);
 
       if (!emailSent) {
          console.warn("Verification email could not be sent");
@@ -254,7 +254,9 @@ const refreshToken = async (req, res) => {
       // 8.Generate a new access token
       const accessToken = generateAccessToken(user._id);
 
-      // 9. set new token in the response cookie
+      // 9.Set new tokens in the response cookies
+      res.cookie("accessToken", accessToken, getAccessTokenCookieOptions());
+
       res.cookie(
          "refreshToken",
          newRefreshToken,

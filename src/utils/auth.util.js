@@ -1,6 +1,8 @@
-import {User} from "../models/user.model.js";
+import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { BlacklistedToken } from "../models/blacklistedTokens.model.js";
+import { config } from "../config/env.config.js";
 
 const verifyCredentials = async (email, password) => {
    try {
@@ -39,5 +41,21 @@ const verifyCredentials = async (email, password) => {
    }
 };
 
+const blacklistAccessToken = async (accessToken) => {
+   try {
+      const decoded = jwt.verify(accessToken, config.jwt.accessToken.secret);
 
-export {verifyCredentials}
+      //Add token to blacklist
+      await BlacklistedToken.create({
+         token: accessToken,
+         user: decoded.id,
+         expiresAt: decoded ? new Date(decoded.exp * 1000) : null,
+      });
+      return true;
+   } catch (error) {
+      console.error("Error blacklisting access token:", error);
+      return false;
+   }
+};
+
+export { verifyCredentials, blacklistAccessToken };

@@ -26,7 +26,7 @@ const successResponse = (
 /** Error Response
  * @param { Object } res - Express response object
  * @param { Number } statusCode - HTTP status code
- * @param { String } message - Success message
+ * @param { String } message - Error message
  * @param { Object } error - Error object
  */
 

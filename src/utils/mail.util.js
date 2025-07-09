@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/env.config.js";
 
-const sendVerifcationEmail = async (email, token) => {
+const sendVerificationEmail = async (email, token) => {
    try {
       // create a transporter
       const transporter = nodemailer.createTransport({
@@ -92,4 +92,4 @@ const sendForgotPasswordEmail = async (email, token) => {
    }
 };
 
-export { sendVerifcationEmail , sendForgotPasswordEmail};
+export { sendVerificationEmail , sendForgotPasswordEmail};
