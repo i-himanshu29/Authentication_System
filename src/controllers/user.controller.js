@@ -1,9 +1,10 @@
 import { User } from "../models/user.model.js";
 
 import { successResponse, errorResponse } from "../utils/apiResponse.util.js";
-import { verifyCredentials } from "../utils/auth.util.js";
+import { blacklistAccessToken, verifyCredentials } from "../utils/auth.util.js";
 import { config, parseTimeString } from "../config/env.config.js";
 import {
+   extractTokenFromRequest,
    generateAccessToken,
    generateRefreshToken,
    generateSecureToken,
@@ -14,12 +15,14 @@ import {
 } from "../utils/mail.util.js";
 import {
    enforceDeviceLimit,
+   formatSessionsData,
    getDeviceInfo,
    updateExistingSession,
 } from "../utils/session.util.js";
 import { RefreshToken } from "../models/refreshToken.model.js";
 import {
    getAccessTokenCookieOptions,
+   getCookieClearingOptionsV5,
    getRefreshTokenCookieOptions,
 } from "../utils/cookie.util.js";
 
@@ -375,6 +378,127 @@ const resetPassword = async (req, res) => {
    }
 };
 
+const logoutUser = async (req, res) => {
+   try {
+      //1.Get tokens
+      const accessToken =
+         req.cookies.accessToken || extractTokenFromRequest(req);
+      const refreshToken = req.cookies.refreshToken;
+
+      //2.Handle refresh token - remove it from the DB
+      if (refreshToken) {
+         await RefreshToken.deleteOne({ token: refreshToken });
+      }
+
+      //3.Using auth utils to Blacklist the access token
+      if (accessToken) {
+         await blacklistAccessToken(accessToken);
+      }
+
+      //4.Clear the cookie regardless of the token verification status
+      res.clearCookie("accessToken", getCookieClearingOptionsV5());
+
+      res.clearCookie("refreshToken", getCookieClearingOptionsV5());
+      return successResponse(res, 500, "Logout failed", error.message);
+   } catch (error) {
+      return errorResponse(res, 500, "Logout failed", error.message);
+   }
+};
+
+const getActiveSessions = async (req, res) => {
+   try {
+      //Find all active sessions based on the user id
+      const sessions = await RefreshToken.find({ user: req.user._id }).sort({
+         lastUsed: -1,
+      });
+
+      // Use session utils to format the session data
+      const currentToken = req.cookies.refreshToken;
+      const formattedSessions = formatSessionsData(sessions, currentToken);
+
+      return successResponse(res, 200, "Active sessions retrieved", {
+         sessions: formattedSessions,
+      });
+   } catch (error) {
+      return errorResponse(
+         res,
+         500,
+         "Error retrieving active sessions",
+         error.message,
+      );
+   }
+};
+
+const logoutAllOtherDevices = async (req, res) => {
+   try {
+      //1.get current device refresh token
+      const currentToken = req.cookies.refreshToken;
+
+      if (!currentToken) {
+         return errorResponse(res, 400, "No refresh token found");
+      }
+
+      // Revoke all other sessions expect the current session
+      const deletedSessions = await RefreshToken.deleteMany({
+         user: req.user._id,
+         token: { $ne: currentToken },
+      });
+
+      return successResponse(
+         res,
+         200,
+         "Logout from all other devices successful",
+         { deletedSessions: deletedSessions.deletedCount },
+      );
+   } catch (error) {
+      return errorResponse(
+         res,
+         500,
+         "Error logging out from other devices",
+         error.message,
+      );
+   }
+};
+
+const terminateSession = async (req, res) => {
+   try {
+      //get session id from the request params
+      const { sessionId } = req.params;
+
+      if (!sessionId) {
+         return errorResponse(res, 400, "Session id is required");
+      }
+
+      //Find the session based on the id
+      const session = await RefreshToken.findOne({
+         _id: sessionId,
+         user: req.user._id,
+      });
+
+      if (!session) {
+         return errorResponse(res, 404, "Session not found");
+      }
+
+      // Check if trying to teminate the current session
+      if (session.token === req.cookies.refreshToken) {
+         // logout current session
+         return logoutUser(req, res);
+      }
+
+      // Terminate the session
+      await RefreshToken.deleteOne({ _id: sessionId });
+
+      return successResponse(res, 200, "Session terminated successfully");
+   } catch (error) {
+      return errorResponse(
+         res,
+         500,
+         "Error terminating session",
+         error.message,
+      );
+   }
+};
+
 export {
    registerUser,
    verifyUser,
@@ -383,4 +507,8 @@ export {
    getUserProfile,
    forgotPassword,
    resetPassword,
+   logoutUser,
+   getActiveSessions,
+   logoutAllOtherDevices,
+   terminateSession,
 };
