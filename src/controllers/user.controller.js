@@ -1,14 +1,17 @@
 import { User } from "../models/user.model.js";
 
 import { successResponse, errorResponse } from "../utils/apiResponse.util.js";
-import {verifyCredentials} from "../utils/auth.util.js"
+import { verifyCredentials } from "../utils/auth.util.js";
 import { config, parseTimeString } from "../config/env.config.js";
 import {
    generateAccessToken,
    generateRefreshToken,
    generateSecureToken,
 } from "../utils/token.util.js";
-import { sendVerifcationEmail } from "../utils/mail.util.js";
+import {
+   sendForgotPasswordEmail,
+   sendVerifcationEmail,
+} from "../utils/mail.util.js";
 import {
    enforceDeviceLimit,
    getDeviceInfo,
@@ -164,10 +167,10 @@ const loginUser = async (req, res) => {
       const { deviceInfo, ipAddress } = getDeviceInfo(req);
 
       const refreshExpiry = new Date(
-         Date.now() + config.jwt.refreshToken.expiresIn
-       );
+         Date.now() + config.jwt.refreshToken.expiresIn,
+      );
 
-      const sessionUpdated= await updateExistingSession(
+      const sessionUpdated = await updateExistingSession(
          user._id,
          deviceInfo,
          refreshToken,
@@ -202,4 +205,180 @@ const loginUser = async (req, res) => {
       return errorResponse(res, 500, "Login failed.", error.message);
    }
 };
-export { registerUser, verifyUser ,loginUser };
+
+const refreshToken = async (req, res) => {
+   try {
+      // 1.Get the refresh token from the req cookie
+      const tokenFromCookie = req.cookies.refreshToken;
+      if (!tokenFromCookie) {
+         return errorResponse(res, 401, "No refresh token found");
+      }
+
+      // 2.Find the refresh token in DB
+      const refreshTokenDoc = await RefreshToken.findOne({
+         token: tokenFromCookie,
+      });
+
+      if (!refreshTokenDoc) {
+         return errorResponse(res, 401, "Invalid refresh token");
+      }
+
+      // 3.Verify expiration time
+      if (new Date() > refreshTokenDoc.expiresAt) {
+         await RefreshToken.deleteOne({ _id: refreshTokenDoc._id });
+         return errorResponse(res, 401, "Refresh token has expired");
+      }
+
+      // 4.Find the user based on the refresh token
+      const user = await User.findById(refreshTokenDoc.user);
+      if (!user) {
+         return errorResponse(res, 404, "User not found");
+      }
+
+      // 5.Generate a new refresh token
+      const newRefreshToken = generateRefreshToken(user._id);
+
+      // 6.update refresh token in DB
+      refreshTokenDoc.token = newRefreshToken;
+      refreshTokenDoc.lastUsed = new Date();
+      refreshTokenDoc.ipAddress = req.ip || req.connection.remoteAddress;
+
+      // 7.token expiration time
+      const refreshExpiry = new Date(
+         Date.now() + config.jwt.refreshToken.expiresIn,
+      );
+      refreshTokenDoc.expiresAt = refreshExpiry;
+
+      await refreshTokenDoc.save();
+
+      // 8.Generate a new access token
+      const accessToken = generateAccessToken(user._id);
+
+      // 9. set new token in the response cookie
+      res.cookie(
+         "refreshToken",
+         newRefreshToken,
+         getRefreshTokenCookieOptions(refreshExpiry),
+      );
+
+      return successResponse(res, 200, "Token refreshed successfully");
+   } catch (error) {
+      return errorResponse(
+         res,
+         500,
+         "Error refreshing access token",
+         error.message,
+      );
+   }
+};
+
+const getUserProfile = async (req, res) => {
+   try {
+      // 1.req.user is set in the protect middleware after verifying
+      const user = await User.findById(req.user._id);
+
+      // 2.return the user data in the res
+      return successResponse(res, 200, "User profile", {
+         user: user.toPublicJSON(),
+      });
+   } catch (error) {
+      return errorResponse(
+         res,
+         500,
+         "Error retrieving user profile",
+         error.message,
+      );
+   }
+};
+
+const forgotPassword = async (req, res) => {
+   try {
+      // 1.Get user email from the req body
+      const { email } = req.body;
+
+      if (!email) {
+         return errorResponse(res, 400, "Email is required");
+      }
+
+      // 2.Find user based on email
+      const user = await User.findOne({ email });
+      if (!user) {
+         return errorResponse(res, 401, "No user found with this email");
+      }
+
+      //3. Create a reset token for the user
+      const token = generateSecureToken();
+      user.passwordResetToken = token;
+      user.passwordResetTokenExpiry = Date.now() + parseTimeString("10");
+
+      await user.save();
+
+      // 4.send password reset email
+      const emailSent = await sendForgotPasswordEmail(user.email, token);
+      if (!emailSent) {
+         console.log("Verification email cound not be sent");
+      }
+
+      return successResponse(
+         res,
+         200,
+         emailSent
+            ? "Password reset email sent and Please check your email"
+            : "Password reset email could not be sent",
+      );
+   } catch (error) {
+      return errorResponse(res, 500, "Error resetting password", error.message);
+   }
+};
+
+const resetPassword = async (req, res) => {
+   try {
+      // 1.get reset token from the req param
+      const { token } = req.params;
+      if (!token) {
+         return errorResponse(res, 400, "Reset token is required");
+      }
+
+      // 2.Find user based on the reset token
+      const user = await User.findOne({
+         passwordResetToken: token,
+         passwordResetTokenExpiry: { $gt: Date.now() },
+      });
+
+      if (!user) {
+         return errorResponse(res, 400, "Invalid or expired reset token");
+      }
+
+      // 3. Get new password from the req body
+      const { password } = req.body;
+      if (!password) {
+         return errorResponse(res, 400, "New password is required");
+      }
+
+      //4.update the user password
+      user.password = password;
+
+      //5.clear the reset token fields
+      user.passwordResetToken = undefined;
+      user.passwordResetTokenExpiry = undefined;
+      await user.save();
+
+      return successResponse(
+         res,
+         200,
+         "Password reset successful. Please login with your new password",
+      );
+   } catch (error) {
+      return errorResponse(res, 500, "Error resetting password", error.message);
+   }
+};
+
+export {
+   registerUser,
+   verifyUser,
+   loginUser,
+   refreshToken,
+   getUserProfile,
+   forgotPassword,
+   resetPassword,
+};

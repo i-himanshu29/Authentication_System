@@ -1,13 +1,13 @@
 import jwt from "jsonwebtoken";
-import {User} from "../models/user.model.js";
-import {BlacklistedToken} from "../models/blacklistedTokens.model.js";
+import { User } from "../models/user.model.js";
+import { BlacklistedToken } from "../models/blacklistedTokens.model.js";
 import { extractTokenFromRequest } from "../utils/token.util.js";
 import { config } from "../config/env.config.js";
 
 const protect = async (req, res, next) => {
    try {
       // 1.Extract the data from cookie , then fallback to headers
-      const token = req.cookie.accessToken || extractTokenFromRequest(req);
+      const token = req.cookies.accessToken || extractTokenFromRequest(req);
 
       if (!token) {
          return res.status(401).json({
